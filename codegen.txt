@@ -1,0 +1,472 @@
+
+type {{.Model}}Controller struct {
+	fuel.Controller `prefix:"???" root:"{{.Table}}" version:"1"`
+
+	// automatic apis:
+	get    fuel.GET    `route:"{id:[0-9]+}"`
+	insert fuel.POST   `route:"-"`
+	update fuel.PUT    `route:"{id:[0-9]+}"`
+	delete fuel.DELETE `route:"{id:[0-9]+}"`
+	find   fuel.GET    `route:"find"`
+
+	{{if .IsImgMulti}}
+	// multi image set apis:
+	imageGet        fuel.GET    `route:"{id:[0-9]+}/images"`
+	imageDefault    fuel.GET    `route:"{id:[0-9]+}/images/default"`
+	imageAppend     fuel.POST   `route:"{id:[0-9]+}/images"`
+	imageMove       fuel.PUT    `route:"{id:[0-9]+}/images/{pos:[0-9]+}/move-to/{posDest:[0-9]+}"`
+	imageRemove     fuel.DELETE `route:"{id:[0-9]+}/images/{pos:[0-9]+}"`
+	imageRemoveMany fuel.DELETE `route:"{id:[0-9]+}/images/{startPos:[0-9]+}/to/{endPos:[0-9]+}"`
+	{{end}}
+
+    {{if .IsDyn}}
+	// attribute apis:
+	attribute       fuel.GET  `route:"/attribute/{id:[0-9]+}"`
+	attributeList   fuel.GET  `route:"/attribute/list"`
+	attributeCode   fuel.GET  `route:"/attribute/code/{code}"`
+	attributeInsert fuel.POST `route:"/attribute"`
+	attributeUpdate fuel.PUT  `route:"/attribute/{id:[0-9]+}"`
+    {{end}}
+
+	// custom apis:
+}
+
+//-----------------------------------
+// custom apis implementation
+//-----------------------------------
+
+
+//-----------------------------------
+// automatic apis implementation
+//-----------------------------------
+
+func ({{.VarContr}} *{{.Model}}Controller) Get(id uint) (*{{.Model}}, error) {
+	var {{.VarSing}} {{.Model}}
+	dbo := dorm.GetORM(false)
+	err := dbo.Where("id=?",id).First(&{{.VarSing}}).Error
+	return &{{.VarSing}}, err
+}
+
+func ({{.VarContr}} *{{.Model}}Controller) Find(ad fuel.Aide) ([]{{.Model}}, error) {
+	var {{.VarSing}}  {{.Model}}
+    var {{.VarPlur}}  []{{.Model}}
+	dbo := dorm.GetORM(false)
+
+	flds := refl.NestedFields({{.VarSing}})
+	query := map[string]interface{}{}
+    params := ad.Query()
+
+    // if param matches one of model fields,
+	// then only we use it in exact query
+	for _, f := range flds {
+		sql := txt.CaseSnake(f.Name)
+
+		if val, ok := params[sql]; ok {
+			query[sql] = val
+		}
+	}
+
+    // overall count
+	var cnt int
+	err := dbo.Model(&{{.Model}}{}).Where(query).Count(&cnt).Error
+	if err != nil {
+		return nil, err
+	}
+	ad.Response.Header().Set(dorm.HeaderCount, fmt.Sprintf("%d", cnt))
+
+    // size
+    sizeVal, ok := params[":page-size"]
+    if !ok {
+        sizeVal = "-1"
+    }
+	size := conv.IntOr(sizeVal, 100)
+
+    // page
+    pageVal, ok := params[":page-num"]
+    if !ok {
+        pageVal = "1"
+    }
+    page := conv.IntOr(pageVal, 1)
+
+	offset := 0
+	if size != -1 {
+		offset = (page - 1) * size
+	}
+
+    // order
+    order, ok := params[":order"]
+    if !ok {
+        order = "id"
+    }
+
+	err = dbo.Where(query).Order(order).Offset(offset).Limit(size).Find(&{{.VarPlur}}).Error
+	return {{.VarPlur}}, err
+}
+
+
+func ({{.VarContr}} *{{.Model}}Controller) Insert(h fuel.Aide) (*{{.Model}}, error) {
+	var {{.VarSing}} {{.Model}}
+	var err error
+
+    {{if .HasInsUpd}}
+	// custom validations - write
+	err = {{.VarSing}}.BeforeInsertUpdate(h)
+	if err != nil {
+		return nil, err
+	}
+    {{end}}
+
+    {{if .HasIns}}
+	// custom validations - insert
+	err = {{.VarSing}}.BeforeInsert(h)
+	if err != nil {
+		return nil, err
+	}
+    {{end}}
+
+    {{if .IsDyn}}
+	var ok bool
+	// validate dynamic fields
+	if ok, err = attr.ValidateInputs({{.VarSing}}, h.Post()); !ok {
+		return nil, err
+	}
+    {{end}}
+    
+	{{if .HasImg}}
+	// save any embedded file data to disk, and then update post vars
+	err = SaveAllImg(h.Request, h.Post(), {{.VarSing}})
+	if err != nil {
+		return nil, err
+	}
+	{{end}}
+
+    {{if .HasWho}}
+	// set request info
+	posted := h.Post()
+	posted["who"] = dorm.WhoStr(h.Request)
+    {{end}}
+
+	// store in db
+	dbo := dorm.GetORM(true)
+	err = dorm.InsertSelect(dbo, &{{.VarSing}}, h.Post())
+	if err != nil {
+		return nil, err
+	}
+
+	return &{{.VarSing}}, nil
+}
+
+func ({{.VarContr}} *{{.Model}}Controller) Update(id string, h fuel.Aide) (*{{.Model}}, error) {
+	var {{.VarSing}} {{.Model}}
+	var err error
+
+	dbo := dorm.GetORM(true)
+    
+    {{if .HasInsUpd}}
+	// custom validations - write
+	err = {{.VarSing}}.BeforeInsertUpdate(h)
+	if err != nil {
+		return nil, err
+	}
+    {{end}}
+
+    {{if .HasUpd}}
+	// custom validations - update
+	err = {{.VarSing}}.BeforeUpdate(h)
+	if err != nil {
+		return nil, err
+	}
+    {{end}}
+
+
+    {{if .IsDyn}}
+	var ok bool
+	// validate dynamic fields
+	if ok, err = attr.ValidateInputs({{.VarSing}}, h.Post()); !ok {
+		return nil, err
+	}
+    {{end}}
+    
+
+	{{if .HasImg}}
+	// save any embedded file data to disk, and then update post vars
+	err = SaveAllImg(h.Request, h.Post(), {{.VarSing}})
+	if err != nil {
+		return nil, err
+	}
+	{{end}}
+
+    {{if .HasWho}}
+	// set request info
+	posted := h.Post()
+	posted["who"] = dorm.WhoStr(h.Request)
+    {{end}}
+
+	// store in db
+	err = dorm.UpdateSelect(dbo, "id", id, &{{.VarSing}}, h.Post())
+	if err != nil {
+		return nil, err
+	}
+
+	
+	return &{{.VarSing}}, nil
+}
+
+func ({{.VarContr}} *{{.Model}}Controller) Delete(id uint, h fuel.Aide) (*{{.Model}}, error) {
+	var {{.VarSing}} {{.Model}}
+	var err error
+	req := dorm.WhoStr(h.Request)
+
+	dbo := dorm.GetORM(true)
+	err = dbo.Exec("UPDATE {{.Table}} SET deleted=1, who=? WHERE id=?", req, id).Error
+	if err != nil {
+		return nil, err
+	}
+
+	err = dbo.Where("id=?",id).First(&{{.VarSing}}).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return &{{.VarSing}}, nil
+}
+
+{{if .IsImgMulti}}
+//-----------------------------------
+// multiple images implementation
+//-----------------------------------
+
+
+func ({{.VarContr}} *{{.Model}}Controller) ImageGet(id string) (*leo.ImgList, error) {
+	var {{.VarSing}} {{.Model}}
+	var err error
+	dbo := dorm.GetORM(true)
+
+	// get entity
+	err = dbo.Where("id=?",id).Find(&{{.VarSing}}).Error
+	if err != nil {
+		return nil, err
+	}
+
+	// if nil, return empty
+	if {{.VarSing}}.Images == nil {
+		list := make(leo.ImgList, 0)
+		return &list, nil
+	}
+
+	return {{.VarSing}}.Images, nil
+}
+
+func ({{.VarContr}} *{{.Model}}Controller) ImageDefault(id string) (*leo.Img, error) {
+	var {{.VarSing}} {{.Model}}
+	var err error
+	dbo := dorm.GetORM(true)
+
+	// get entity
+	err = dbo.Where("id=?",id).Find(&{{.VarSing}}).Error
+	if err != nil {
+		return nil, err
+	}
+
+	// if nil then error
+	if {{.VarSing}}.Images == nil || len(*{{.VarSing}}.Images) == 0 {
+		return nil, errors.New("no image found")
+	}
+
+	dflt := (*{{.VarSing}}.Images)[0]
+
+	return &dflt, nil
+}
+
+func ({{.VarContr}} *{{.Model}}Controller) ImageAppend(id string, ad fuel.Aide) (*leo.ImgList, error) {
+
+	var {{.VarSing}} {{.Model}}
+	var err error
+	dbo := dorm.GetORM(true)
+
+	// get entity
+	err = dbo.Where("id=?",id).Find(&{{.VarSing}}).Error
+	if err != nil {
+		return nil, err
+	}
+
+	// validate postback contains data
+	f, fh, err := ad.Request.FormFile("image")
+	if err != nil {
+		return nil, err
+	}
+
+	// create new file record
+	file, err := NewFile(f, fh, "{{.Table}}", "images", dorm.WhoMap(ad.Request))
+	if err != nil {
+		return nil, err
+	}
+
+	// append to images collection
+	if {{.VarSing}}.Images == nil {
+		list := make(leo.ImgList, 0)
+		{{.VarSing}}.Images = &list
+	}
+	*{{.VarSing}}.Images = append(*{{.VarSing}}.Images, leo.Img{FileID: file.ID, Src: file.URL()})
+	err = dbo.Model({{.VarSing}}).Where("id=?", id).Update("images", {{.VarSing}}.Images).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return {{.VarSing}}.Images, nil
+}
+
+func ({{.VarContr}} *{{.Model}}Controller) ImageRemove(id string, pos int) (*leo.ImgList, error) {
+	var {{.VarSing}} {{.Model}}
+	var err error
+	dbo := dorm.GetORM(true)
+
+	// get entity
+	err = dbo.Where("id=?",id).Find(&{{.VarSing}}).Error
+	if err != nil {
+		return nil, err
+	}
+
+	// are there any images at all?
+	if {{.VarSing}}.Images == nil {
+		return nil, errors.New("no images found")
+	}
+
+	// does the given position exist?
+	if pos >= len(*{{.VarSing}}.Images) {
+		return nil, errors.New("no image found at the given position")
+	}
+
+	// remove that pos, and save
+	list := *{{.VarSing}}.Images
+	list = append(list[:pos], list[pos+1:]...)
+	err = dbo.Model({{.VarSing}}).Where("id=?", id).Update("images", &list).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return &list, nil
+}
+
+func ({{.VarContr}} *{{.Model}}Controller) ImageMove(id string, pos int, posDest int) (*leo.ImgList, error) {
+	var {{.VarSing}} {{.Model}}
+	var err error
+	dbo := dorm.GetORM(true)
+
+	// get entity
+	err = dbo.Where("id=?",id).Find(&{{.VarSing}}).Error
+	if err != nil {
+		return nil, err
+	}
+
+	// are there any images at all?
+	if {{.VarSing}}.Images == nil {
+		return nil, errors.New("no images found")
+	}
+
+	// does the given position exist?
+	if pos >= len(*{{.VarSing}}.Images) {
+		return nil, errors.New("no image found at src position")
+	}
+	if posDest >= len(*{{.VarSing}}.Images) {
+		return nil, errors.New("no image found at dest position")
+	}
+
+	// remove that pos, and save
+	list := *{{.VarSing}}.Images
+	img := list[pos]
+	list = append(list[:pos], list[pos+1:]...) // list is shrunk by 1 item
+
+	newList := make(leo.ImgList, 0)
+	if posDest == len(list) { // send to the end
+		newList = append(list, img)
+	} else { // insert at specific position
+		for i := range list {
+			if i == posDest {
+				newList = append(newList, img, list[i])
+			} else {
+				newList = append(newList, list[i])
+			}
+		}
+	}
+
+	err = dbo.Model({{.VarSing}}).Where("id=?", id).Update("images", &newList).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return &newList, nil
+}
+
+func ({{.VarContr}} *{{.Model}}Controller) ImageRemoveMany(id string, startPos int, endPos int) (*leo.ImgList, error) {
+    var {{.VarSing}} {{.Model}}
+    var err error
+    dbo := dorm.GetORM(true)
+
+    // get entity
+    err = dbo.Where("id=?",id).Find(&{{.VarSing}}).Error
+    if err != nil {
+        return nil, err
+    }
+
+    // are there any images at all?
+    if {{.VarSing}}.Images == nil {
+        return nil, errors.New("no images found")
+    }
+
+    // does the given position exist?
+    if startPos >= len(*{{.VarSing}}.Images) {
+        return nil, errors.New("no image found at the starting position")
+    }
+    if endPos >= len(*{{.VarSing}}.Images) {
+        return nil, errors.New("no image found at ending position")
+    }
+
+    // removed from pos to dest pos, and save
+    list := *{{.VarSing}}.Images
+    list = append(list[:startPos], list[endPos+1:]...)
+    err = dbo.Model({{.VarSing}}).Where("id=?", id).Update("images", &list).Error
+    if err != nil {
+        return nil, err
+    }
+
+    return &list, nil
+}
+{{end}}
+
+
+
+{{if .IsDyn}}
+//-----------------------------------
+// attribute apis implementation
+//-----------------------------------
+
+func ({{.VarContr}} *{{.Model}}Controller) Attribute(id uint) (attr.AttributeField, error) {
+	var att attr.AttributeField
+	dbo := dorm.GetORM(false)
+	err := dbo.Where("entity=? and id=?", "{{.Table}}", id).Find(&att).Error
+	return att, err
+}
+
+func ({{.VarContr}} *{{.Model}}Controller) AttributeCode(code string) (attr.AttributeField, error) {
+	var att attr.AttributeField
+	dbo := dorm.GetORM(false)
+	err := dbo.Where("entity=? and field='info' and code=?", "{{.Table}}", code).Find(&att).Error
+	return att, err
+}
+
+func ({{.VarContr}} *{{.Model}}Controller) AttributeList() ([]attr.AttributeField, error) {
+	var atts []attr.AttributeField
+	dbo := dorm.GetORM(false)
+	err := dbo.Where("entity=?", "{{.Table}}").Order("entity, field, code").Find(&atts).Error
+	return atts, err
+}
+
+func ({{.VarContr}} *{{.Model}}Controller) AttributeInsert(h fuel.Aide) (*attr.AttributeField, error) {
+	return attr.InsertViaEntity(h, "{{.Table}}", "info")
+}
+
+func ({{.VarContr}} *{{.Model}}Controller) AttributeUpdate(id string, h fuel.Aide) (*attr.AttributeField, error) {
+	return attr.UpdateViaEntity(h, id)
+}
+{{end}}
