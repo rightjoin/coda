@@ -3,10 +3,10 @@ type {{.Model}}Controller struct {
 	fuel.Controller `prefix:"???" root:"{{.Table}}" version:"1"`
 
 	// automatic apis:
-	get    fuel.GET    `route:"{id:[0-9]+}"`
+	get    fuel.GET    `route:"{{.KeyRoute}}"`
 	insert fuel.POST   `route:"-"`
-	update fuel.PUT    `route:"{id:[0-9]+}"`
-	delete fuel.DELETE `route:"{id:[0-9]+}"`
+	update fuel.PUT    `route:"{{.KeyRoute}}"`
+	delete fuel.DELETE `route:"{{.KeyRoute}}"`
 	find   fuel.GET    `route:"find"`
 
 	{{if .IsImgMulti}}
@@ -40,7 +40,7 @@ type {{.Model}}Controller struct {
 // automatic apis implementation
 //-----------------------------------
 
-func ({{.VarContr}} *{{.Model}}Controller) Get(id uint) (*{{.Model}}, error) {
+func ({{.VarContr}} *{{.Model}}Controller) Get({{.Key}} {{.KeyType}}) (*{{.Model}}, error) {
 	var {{.VarSing}} {{.Model}}
 	dbo := dorm.GetORM(false)
 	err := dbo.Where("id=?",id).First(&{{.VarSing}}).Error
@@ -156,7 +156,7 @@ func ({{.VarContr}} *{{.Model}}Controller) Insert(h fuel.Aide) (*{{.Model}}, err
 	return &{{.VarSing}}, nil
 }
 
-func ({{.VarContr}} *{{.Model}}Controller) Update(id string, h fuel.Aide) (*{{.Model}}, error) {
+func ({{.VarContr}} *{{.Model}}Controller) Update({{.Key}} {{.KeyType}}, h fuel.Aide) (*{{.Model}}, error) {
 	var {{.VarSing}} {{.Model}}
 	var err error
 
@@ -203,7 +203,7 @@ func ({{.VarContr}} *{{.Model}}Controller) Update(id string, h fuel.Aide) (*{{.M
     {{end}}
 
 	// store in db
-	err = dorm.UpdateSelect(dbo, "id", id, &{{.VarSing}}, h.Post())
+	err = dorm.UpdateSelect(dbo, "{{.Key}}", {{.Key}}, &{{.VarSing}}, h.Post())
 	if err != nil {
 		return nil, err
 	}
@@ -212,18 +212,18 @@ func ({{.VarContr}} *{{.Model}}Controller) Update(id string, h fuel.Aide) (*{{.M
 	return &{{.VarSing}}, nil
 }
 
-func ({{.VarContr}} *{{.Model}}Controller) Delete(id uint, h fuel.Aide) (*{{.Model}}, error) {
+func ({{.VarContr}} *{{.Model}}Controller) Delete({{.Key}} {{.KeyType}}, h fuel.Aide) (*{{.Model}}, error) {
 	var {{.VarSing}} {{.Model}}
 	var err error
 	req := dorm.WhoStr(h.Request)
 
 	dbo := dorm.GetORM(true)
-	err = dbo.Exec("UPDATE {{.Table}} SET deleted=1, who=? WHERE id=?", req, id).Error
+	err = dbo.Exec("UPDATE {{.Table}} SET deleted=1, who=? WHERE {{.Key}}=?", req, {{.Key}}).Error
 	if err != nil {
 		return nil, err
 	}
 
-	err = dbo.Where("id=?",id).First(&{{.VarSing}}).Error
+	err = dbo.Where("{{.Key}}=?",{{.Key}}).First(&{{.VarSing}}).Error
 	if err != nil {
 		return nil, err
 	}

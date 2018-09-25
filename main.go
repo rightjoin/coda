@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"reflect"
@@ -9,13 +10,13 @@ import (
 	"github.com/alecthomas/template"
 	"github.com/rightjoin/dorm"
 
-	"github.com/rightjoin/admire/api"
 	"github.com/rightjoin/fuel"
+	"github.com/rightjoin/oneadmin-go/api"
 	"github.com/rightjoin/utila/refl"
 	"github.com/rightjoin/utila/txt"
 )
 
-var model = &api.Filter{}
+var model = &api.User{}
 
 func main() {
 
@@ -23,6 +24,23 @@ func main() {
 		fmt.Println("Address of model expected")
 		return
 	}
+
+	// ask user to use id or uid in generated apis
+	pkey := func() string {
+		obj := reflect.TypeOf(model).Elem()
+		_, okid := obj.FieldByName("ID")
+		_, okuid := obj.FieldByName("UID")
+		if okid && !okuid {
+			return "id"
+		} else if !okid && okuid {
+			return "uid"
+		}
+		// Ask user
+		reader := bufio.NewReader(os.Stdin)
+		fmt.Print("Which key should be used? uid or id:")
+		text, _ := reader.ReadString('\n')
+		return strings.TrimSpace(text)
+	}()
 
 	name := reflect.TypeOf(model).Elem().Name()
 	abbr := func() string {
@@ -45,6 +63,21 @@ func main() {
 		// Core Model & Table
 		"Model": name,
 		"Table": tableName(model),
+
+		// Unique ID or Primary Key related
+		"Key": pkey,
+		"KeyRoute": func() string {
+			if pkey == "id" {
+				return "{id:[0-9]+}"
+			}
+			return "{uid}"
+		}(),
+		"KeyType": func() string {
+			if pkey == "id" {
+				return "uint"
+			}
+			return "string"
+		}(),
 
 		// Behaviors
 		"IsDyn":      refl.ComposedOf(model, dorm.DynamicField{}),
