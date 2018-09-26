@@ -43,7 +43,7 @@ type {{.Model}}Controller struct {
 func ({{.VarContr}} *{{.Model}}Controller) Get({{.Key}} {{.KeyType}}) (*{{.Model}}, error) {
 	var {{.VarSing}} {{.Model}}
 	dbo := dorm.GetORM(false)
-	err := dbo.Where("id=?",id).First(&{{.VarSing}}).Error
+	err := dbo.Where("{{.Key}}=?",{{.Key}}).First(&{{.VarSing}}).Error
 	return &{{.VarSing}}, err
 }
 
