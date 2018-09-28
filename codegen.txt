@@ -5,11 +5,11 @@ type {{.Model}}Controller struct {
 	// custom apis:
 
 	// automatic apis:
+	find   fuel.GET    `route:"find"`
 	get    fuel.GET    `route:"{{.KeyRoute}}"`
 	insert fuel.POST   `route:"-"`
 	update fuel.PUT    `route:"{{.KeyRoute}}"`
 	delete fuel.DELETE `route:"{{.KeyRoute}}"`
-	find   fuel.GET    `route:"find"`
 
 	{{if .IsImgMulti}}
 	// multi image set apis:
@@ -59,7 +59,7 @@ func ({{.VarContr}} *{{.Model}}Controller) Find(ad fuel.Aide) ([]{{.Model}}, err
     // if param matches one of model fields,
 	// then only we use it in exact query
 	for _, f := range flds {
-		sql := txt.CaseSnake(f.Name)
+		sql := conv.CaseSnake(f.Name)
 
 		if val, ok := params[sql]; ok {
 			query[sql] = val

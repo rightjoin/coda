@@ -12,11 +12,11 @@ import (
 
 	"github.com/rightjoin/fuel"
 	"github.com/rightjoin/oneadmin-go/api"
+	"github.com/rightjoin/utila/conv"
 	"github.com/rightjoin/utila/refl"
-	"github.com/rightjoin/utila/txt"
 )
 
-var model = &api.User{}
+var model = &api.Datasource{}
 
 func main() {
 
@@ -137,7 +137,7 @@ func tableName(model interface{}) string {
 		name := v.MethodByName("TableName").Call([]reflect.Value{})
 		return name[0].String()
 	}
-	return txt.CaseSnake(t.Name())
+	return conv.CaseSnake(t.Name())
 }
 
 type insertChecks interface {
