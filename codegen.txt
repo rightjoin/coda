@@ -6,6 +6,7 @@ type {{.Model}}Controller struct {
 
 	// automatic apis:
 	find   fuel.GET    `route:"find"`
+	query  fuel.POST   `route:"query"`
 	get    fuel.GET    `route:"{{.KeyRoute}}"`
 	insert fuel.POST   `route:"-"`
 	update fuel.PUT    `route:"{{.KeyRoute}}"`
@@ -40,69 +41,27 @@ type {{.Model}}Controller struct {
 // automatic apis implementation
 //-----------------------------------
 
+
+func ({{.VarContr}} *{{.Model}}Controller) Find(ad fuel.Aide) ([]{{.Model}}, error) {
+	var {{.VarSing}}  {{.Model}}
+    var {{.VarPlur}}  []{{.Model}}
+	err := fuel.FindHelper({{.VarSing}}, &{{.VarPlur}}, ad, nil)
+	return ds, err
+}
+
+func ({{.VarContr}} *{{.Model}}Controller) Query(ad fuel.Aide) ([]{{.Model}}, error) {
+	var {{.VarSing}}  {{.Model}}
+    var {{.VarPlur}}  []{{.Model}}
+	err := fuel.QueryHelper({{.VarSing}}, &{{.VarPlur}}, ad, nil)
+	return ds, err
+}
+
 func ({{.VarContr}} *{{.Model}}Controller) Get({{.Key}} {{.KeyType}}) (*{{.Model}}, error) {
 	var {{.VarSing}} {{.Model}}
 	dbo := dorm.GetORM(false)
 	err := dbo.Where("{{.Key}}=?",{{.Key}}).First(&{{.VarSing}}).Error
 	return &{{.VarSing}}, err
 }
-
-func ({{.VarContr}} *{{.Model}}Controller) Find(ad fuel.Aide) ([]{{.Model}}, error) {
-	var {{.VarSing}}  {{.Model}}
-    var {{.VarPlur}}  []{{.Model}}
-	dbo := dorm.GetORM(false)
-
-	flds := refl.NestedFields({{.VarSing}})
-	query := map[string]interface{}{}
-    params := ad.Query()
-
-    // if param matches one of model fields,
-	// then only we use it in exact query
-	for _, f := range flds {
-		sql := conv.CaseSnake(f.Name)
-
-		if val, ok := params[sql]; ok {
-			query[sql] = val
-		}
-	}
-
-    // overall count
-	var cnt int
-	err := dbo.Model(&{{.Model}}{}).Where(query).Count(&cnt).Error
-	if err != nil {
-		return nil, err
-	}
-	ad.Response.Header().Set(dorm.HeaderCount, fmt.Sprintf("%d", cnt))
-
-    // size
-    sizeVal, ok := params[":page-size"]
-    if !ok {
-        sizeVal = "-1"
-    }
-	size := conv.IntOr(sizeVal, 100)
-
-    // page
-    pageVal, ok := params[":page-num"]
-    if !ok {
-        pageVal = "1"
-    }
-    page := conv.IntOr(pageVal, 1)
-
-	offset := 0
-	if size != -1 {
-		offset = (page - 1) * size
-	}
-
-    // order
-    order, ok := params[":order"]
-    if !ok {
-        order = "id"
-    }
-
-	err = dbo.Where(query).Order(order).Offset(offset).Limit(size).Find(&{{.VarPlur}}).Error
-	return {{.VarPlur}}, err
-}
-
 
 func ({{.VarContr}} *{{.Model}}Controller) Insert(h fuel.Aide) (*{{.Model}}, error) {
 	var {{.VarSing}} {{.Model}}
