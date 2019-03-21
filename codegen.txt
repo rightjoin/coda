@@ -1,19 +1,20 @@
 
-type {{.Model}}Controller struct {
-	fuel.Controller `prefix:"???" root:"{{.Table}}" version:"1"`
+type {{.Model}}Service struct {
+	fuel.Service `prefix:"???" root:"{{.Table}}" version:"1"`
 
-	// custom apis:
+	// Custom apis:
 
-	// automatic apis:
-	find   fuel.GET    `route:"find"`
-	query  fuel.POST   `route:"query"`
-	get    fuel.GET    `route:"{{.KeyRoute}}"`
-	insert fuel.POST   `route:"-"`
-	update fuel.PUT    `route:"{{.KeyRoute}}"`
-	delete fuel.DELETE `route:"{{.KeyRoute}}"`
+	// Automatic apis:
+	get     fuel.GET    `route:"{{.KeyRoute}}"`
+	getAlt  fuel.GET    `route:"alt/{{.KeyRoute}}"`
+	insert  fuel.POST   `route:"-"`
+	update  fuel.PUT    `route:"{{.KeyRoute}}"`
+	delete  fuel.DELETE `route:"{{.KeyRoute}}"`
+	find    fuel.GET    `route:"find"`
+	query   fuel.POST   `route:"query"`
 
 	{{if .IsImgMulti}}
-	// multi image set apis:
+	// Multi image APIs
 	imageGet        fuel.GET    `route:"{id:[0-9]+}/images"`
 	imageDefault    fuel.GET    `route:"{id:[0-9]+}/images/default"`
 	imageAppend     fuel.POST   `route:"{id:[0-9]+}/images"`
@@ -23,7 +24,7 @@ type {{.Model}}Controller struct {
 	{{end}}
 
     {{if .IsDyn}}
-	// attribute apis:
+	// Attributes for DynamicField
 	attribute       fuel.GET  `route:"/attribute/{id:[0-9]+}"`
 	attributeList   fuel.GET  `route:"/attribute/list"`
 	attributeCode   fuel.GET  `route:"/attribute/code/{code}"`
@@ -32,38 +33,31 @@ type {{.Model}}Controller struct {
     {{end}}
 }
 
-//-----------------------------------
-// custom apis implementation
-//-----------------------------------
+//---------------------------------------
+// Custom API endpoints
+//---------------------------------------
 
 
-//-----------------------------------
-// automatic apis implementation
-//-----------------------------------
+//---------------------------------------
+// Automatically generated API endpoints
+//---------------------------------------
 
 
-func ({{.VarContr}} *{{.Model}}Controller) Find(ad fuel.Aide) ([]{{.Model}}, error) {
-	var {{.VarSing}}  {{.Model}}
-    var {{.VarPlur}}  []{{.Model}}
-	err := fuel.FindHelper({{.VarSing}}, &{{.VarPlur}}, ad, nil)
-	return ds, err
+func ({{.VarContr}} *{{.Model}}Service) Get({{.Key}} {{.KeyType}}) (*{{.Model}}, error) {
+	var {{.VarSing}} {{.Model}}
+	dbo := dorm.GetORM(true)
+	err := dbo.Where("{{.Key}}=?",{{.Key}}).First(&{{.VarSing}}).Error
+	return &{{.VarSing}}, err
 }
 
-func ({{.VarContr}} *{{.Model}}Controller) Query(ad fuel.Aide) ([]{{.Model}}, error) {
-	var {{.VarSing}}  {{.Model}}
-    var {{.VarPlur}}  []{{.Model}}
-	err := fuel.QueryHelper({{.VarSing}}, &{{.VarPlur}}, ad, nil)
-	return ds, err
-}
-
-func ({{.VarContr}} *{{.Model}}Controller) Get({{.Key}} {{.KeyType}}) (*{{.Model}}, error) {
+func ({{.VarContr}} *{{.Model}}Service) GetAlt({{.Key}} {{.KeyType}}) (*{{.Model}}, error) {
 	var {{.VarSing}} {{.Model}}
 	dbo := dorm.GetORM(false)
 	err := dbo.Where("{{.Key}}=?",{{.Key}}).First(&{{.VarSing}}).Error
 	return &{{.VarSing}}, err
 }
 
-func ({{.VarContr}} *{{.Model}}Controller) Insert(h fuel.Aide) (*{{.Model}}, error) {
+func ({{.VarContr}} *{{.Model}}Service) Insert(h fuel.Aide) (*{{.Model}}, error) {
 	var {{.VarSing}} {{.Model}}
 	var err error
 
@@ -93,7 +87,7 @@ func ({{.VarContr}} *{{.Model}}Controller) Insert(h fuel.Aide) (*{{.Model}}, err
     
 	{{if .HasImg}}
 	// save any embedded file data to disk, and then update post vars
-	err = SaveAllImg(h.Request, h.Post(), {{.VarSing}})
+	err = dorm.SaveAnyImg(h.Request, h.Post(), {{.VarSing}})
 	if err != nil {
 		return nil, err
 	}
@@ -115,7 +109,7 @@ func ({{.VarContr}} *{{.Model}}Controller) Insert(h fuel.Aide) (*{{.Model}}, err
 	return &{{.VarSing}}, nil
 }
 
-func ({{.VarContr}} *{{.Model}}Controller) Update({{.Key}} {{.KeyType}}, h fuel.Aide) (*{{.Model}}, error) {
+func ({{.VarContr}} *{{.Model}}Service) Update({{.Key}} {{.KeyType}}, h fuel.Aide) (*{{.Model}}, error) {
 	var {{.VarSing}} {{.Model}}
 	var err error
 
@@ -149,7 +143,7 @@ func ({{.VarContr}} *{{.Model}}Controller) Update({{.Key}} {{.KeyType}}, h fuel.
 
 	{{if .HasImg}}
 	// save any embedded file data to disk, and then update post vars
-	err = SaveAllImg(h.Request, h.Post(), {{.VarSing}})
+	err = dorm.SaveAnyImg(h.Request, h.Post(), {{.VarSing}})
 	if err != nil {
 		return nil, err
 	}
@@ -171,7 +165,7 @@ func ({{.VarContr}} *{{.Model}}Controller) Update({{.Key}} {{.KeyType}}, h fuel.
 	return &{{.VarSing}}, nil
 }
 
-func ({{.VarContr}} *{{.Model}}Controller) Delete({{.Key}} {{.KeyType}}, h fuel.Aide) (*{{.Model}}, error) {
+func ({{.VarContr}} *{{.Model}}Service) Delete({{.Key}} {{.KeyType}}, h fuel.Aide) (*{{.Model}}, error) {
 	var {{.VarSing}} {{.Model}}
 	var err error
 	req := dorm.WhoStr(h.Request)
@@ -190,61 +184,67 @@ func ({{.VarContr}} *{{.Model}}Controller) Delete({{.Key}} {{.KeyType}}, h fuel.
 	return &{{.VarSing}}, nil
 }
 
+func ({{.VarContr}} *{{.Model}}Service) Find(ad fuel.Aide) ([]{{.Model}}, error) {
+	var {{.VarSing}}  {{.Model}}
+    var {{.VarPlur}}  []{{.Model}}
+	err := fuel.FindHelper({{.VarSing}}, &{{.VarPlur}}, ad, nil)
+	return {{.VarPlur}}, err
+}
+
+func ({{.VarContr}} *{{.Model}}Service) Query(ad fuel.Aide) ([]{{.Model}}, error) {
+	var {{.VarSing}}  {{.Model}}
+    var {{.VarPlur}}  []{{.Model}}
+	err := fuel.QueryHelper({{.VarSing}}, &{{.VarPlur}}, ad, nil)
+	return {{.VarPlur}}, err
+}
+
+
+
+
 {{if .IsImgMulti}}
-//-----------------------------------
-// multiple images implementation
-//-----------------------------------
+//---------------------------------------
+// Multiple images: handling and saving
+//---------------------------------------
 
 
-func ({{.VarContr}} *{{.Model}}Controller) ImageGet(id string) (*leo.ImgList, error) {
+func ({{.VarContr}} *{{.Model}}Service) ImageGet({{.Key}} {{.KeyType}}) (*dorm.ImgList, error) {
 	var {{.VarSing}} {{.Model}}
-	var err error
 	dbo := dorm.GetORM(true)
-
-	// get entity
-	err = dbo.Where("id=?",id).Find(&{{.VarSing}}).Error
+	err := dbo.Where("{{.Key}}=?",{{.Key}}).First(&{{.VarSing}}).Error
 	if err != nil {
 		return nil, err
 	}
 
-	// if nil, return empty
+	// If nil then return empty
 	if {{.VarSing}}.Images == nil {
-		list := make(leo.ImgList, 0)
+		list := make(dorm.ImgList, 0)
 		return &list, nil
 	}
 
 	return {{.VarSing}}.Images, nil
 }
 
-func ({{.VarContr}} *{{.Model}}Controller) ImageDefault(id string) (*leo.Img, error) {
+func ({{.VarContr}} *{{.Model}}Service) ImageDefault({{.Key}} {{.KeyType}}) (*dorm.Img, error) {
 	var {{.VarSing}} {{.Model}}
-	var err error
 	dbo := dorm.GetORM(true)
-
-	// get entity
-	err = dbo.Where("id=?",id).Find(&{{.VarSing}}).Error
+	err := dbo.Where("{{.Key}}=?",{{.Key}}).First(&{{.VarSing}}).Error
 	if err != nil {
 		return nil, err
 	}
 
-	// if nil then error
+	// If nil then error
 	if {{.VarSing}}.Images == nil || len(*{{.VarSing}}.Images) == 0 {
 		return nil, errors.New("no image found")
 	}
 
 	dflt := (*{{.VarSing}}.Images)[0]
-
 	return &dflt, nil
 }
 
-func ({{.VarContr}} *{{.Model}}Controller) ImageAppend(id string, ad fuel.Aide) (*leo.ImgList, error) {
-
+func ({{.VarContr}} *{{.Model}}Service) ImageAppend({{.Key}} {{.KeyType}}, ad fuel.Aide) (*dorm.ImgList, error) {
 	var {{.VarSing}} {{.Model}}
-	var err error
 	dbo := dorm.GetORM(true)
-
-	// get entity
-	err = dbo.Where("id=?",id).Find(&{{.VarSing}}).Error
+	err := dbo.Where("{{.Key}}=?",{{.Key}}).First(&{{.VarSing}}).Error
 	if err != nil {
 		return nil, err
 	}
@@ -263,10 +263,10 @@ func ({{.VarContr}} *{{.Model}}Controller) ImageAppend(id string, ad fuel.Aide) 
 
 	// append to images collection
 	if {{.VarSing}}.Images == nil {
-		list := make(leo.ImgList, 0)
+		list := make(dorm.ImgList, 0)
 		{{.VarSing}}.Images = &list
 	}
-	*{{.VarSing}}.Images = append(*{{.VarSing}}.Images, leo.Img{FileID: file.ID, Src: file.URL()})
+	*{{.VarSing}}.Images = append(*{{.VarSing}}.Images, dorm.Img{FileID: file.ID, Src: file.URL()})
 	err = dbo.Model({{.VarSing}}).Where("id=?", id).Update("images", {{.VarSing}}.Images).Error
 	if err != nil {
 		return nil, err
@@ -275,13 +275,10 @@ func ({{.VarContr}} *{{.Model}}Controller) ImageAppend(id string, ad fuel.Aide) 
 	return {{.VarSing}}.Images, nil
 }
 
-func ({{.VarContr}} *{{.Model}}Controller) ImageRemove(id string, pos int) (*leo.ImgList, error) {
+func ({{.VarContr}} *{{.Model}}Service) ImageRemove({{.Key}} {{.KeyType}}, pos int) (*dorm.ImgList, error) {
 	var {{.VarSing}} {{.Model}}
-	var err error
 	dbo := dorm.GetORM(true)
-
-	// get entity
-	err = dbo.Where("id=?",id).Find(&{{.VarSing}}).Error
+	err := dbo.Where("{{.Key}}=?",{{.Key}}).First(&{{.VarSing}}).Error
 	if err != nil {
 		return nil, err
 	}
@@ -307,13 +304,10 @@ func ({{.VarContr}} *{{.Model}}Controller) ImageRemove(id string, pos int) (*leo
 	return &list, nil
 }
 
-func ({{.VarContr}} *{{.Model}}Controller) ImageMove(id string, pos int, posDest int) (*leo.ImgList, error) {
+func ({{.VarContr}} *{{.Model}}Service) ImageMove({{.Key}} {{.KeyType}}, pos int, posDest int) (*dorm.ImgList, error) {
 	var {{.VarSing}} {{.Model}}
-	var err error
 	dbo := dorm.GetORM(true)
-
-	// get entity
-	err = dbo.Where("id=?",id).Find(&{{.VarSing}}).Error
+	err := dbo.Where("{{.Key}}=?",{{.Key}}).First(&{{.VarSing}}).Error
 	if err != nil {
 		return nil, err
 	}
@@ -336,7 +330,7 @@ func ({{.VarContr}} *{{.Model}}Controller) ImageMove(id string, pos int, posDest
 	img := list[pos]
 	list = append(list[:pos], list[pos+1:]...) // list is shrunk by 1 item
 
-	newList := make(leo.ImgList, 0)
+	newList := make(dorm.ImgList, 0)
 	if posDest == len(list) { // send to the end
 		newList = append(list, img)
 	} else { // insert at specific position
@@ -357,16 +351,13 @@ func ({{.VarContr}} *{{.Model}}Controller) ImageMove(id string, pos int, posDest
 	return &newList, nil
 }
 
-func ({{.VarContr}} *{{.Model}}Controller) ImageRemoveMany(id string, startPos int, endPos int) (*leo.ImgList, error) {
-    var {{.VarSing}} {{.Model}}
-    var err error
-    dbo := dorm.GetORM(true)
-
-    // get entity
-    err = dbo.Where("id=?",id).Find(&{{.VarSing}}).Error
-    if err != nil {
-        return nil, err
-    }
+func ({{.VarContr}} *{{.Model}}Service) ImageRemoveMany({{.Key}} {{.KeyType}}, startPos int, endPos int) (*dorm.ImgList, error) {
+	var {{.VarSing}} {{.Model}}
+	dbo := dorm.GetORM(true)
+	err := dbo.Where("{{.Key}}=?",{{.Key}}).First(&{{.VarSing}}).Error
+	if err != nil {
+		return nil, err
+	}
 
     // are there any images at all?
     if {{.VarSing}}.Images == nil {
@@ -396,36 +387,36 @@ func ({{.VarContr}} *{{.Model}}Controller) ImageRemoveMany(id string, startPos i
 
 
 {{if .IsDyn}}
-//-----------------------------------
-// attribute apis implementation
-//-----------------------------------
+//---------------------------------------
+// Attributes for Dynamic Field
+//---------------------------------------
 
-func ({{.VarContr}} *{{.Model}}Controller) Attribute(id uint) (attr.AttributeField, error) {
+func ({{.VarContr}} *{{.Model}}Service) Attribute(id uint) (attr.AttributeField, error) {
 	var att attr.AttributeField
-	dbo := dorm.GetORM(false)
+	dbo := dorm.GetORM(true)
 	err := dbo.Where("entity=? and id=?", "{{.Table}}", id).Find(&att).Error
 	return att, err
 }
 
-func ({{.VarContr}} *{{.Model}}Controller) AttributeCode(code string) (attr.AttributeField, error) {
+func ({{.VarContr}} *{{.Model}}Service) AttributeCode(code string) (attr.AttributeField, error) {
 	var att attr.AttributeField
-	dbo := dorm.GetORM(false)
+	dbo := dorm.GetORM(true)
 	err := dbo.Where("entity=? and field='info' and code=?", "{{.Table}}", code).Find(&att).Error
 	return att, err
 }
 
-func ({{.VarContr}} *{{.Model}}Controller) AttributeList() ([]attr.AttributeField, error) {
+func ({{.VarContr}} *{{.Model}}Service) AttributeList() ([]attr.AttributeField, error) {
 	var atts []attr.AttributeField
-	dbo := dorm.GetORM(false)
+	dbo := dorm.GetORM(true)
 	err := dbo.Where("entity=?", "{{.Table}}").Order("entity, field, code").Find(&atts).Error
 	return atts, err
 }
 
-func ({{.VarContr}} *{{.Model}}Controller) AttributeInsert(h fuel.Aide) (*attr.AttributeField, error) {
+func ({{.VarContr}} *{{.Model}}Service) AttributeInsert(h fuel.Aide) (*attr.AttributeField, error) {
 	return attr.InsertViaEntity(h, "{{.Table}}", "info")
 }
 
-func ({{.VarContr}} *{{.Model}}Controller) AttributeUpdate(id string, h fuel.Aide) (*attr.AttributeField, error) {
+func ({{.VarContr}} *{{.Model}}Service) AttributeUpdate(id string, h fuel.Aide) (*attr.AttributeField, error) {
 	return attr.UpdateViaEntity(h, id)
 }
 {{end}}
