@@ -11,12 +11,11 @@ import (
 	"github.com/rightjoin/dorm"
 
 	"github.com/rightjoin/fuel"
-	"github.com/rightjoin/oneadmin-go/api"
-	"github.com/rightjoin/utila/conv"
-	"github.com/rightjoin/utila/refl"
+	"github.com/rightjoin/rutl/refl"
+	"gitlab.fg.net/tcommerce/backend/skeleton-svc/api"
 )
 
-var model = &api.Datasource{}
+var model = &api.Model{}
 
 func main() {
 
@@ -58,11 +57,11 @@ func main() {
 		// Variable Naming
 		"VarSing":  abbr,
 		"VarPlur":  abbr + "s",
-		"VarContr": abbr[0:1] + "c",
+		"VarContr": abbr[0:1] + "v",
 
 		// Core Model & Table
 		"Model": name,
-		"Table": tableName(model),
+		"Table": dorm.Table(model),
 
 		// Unique ID or Primary Key related
 		"Key": pkey,
@@ -101,7 +100,7 @@ func main() {
 		"HasImg": func() bool {
 			imgStr := refl.Signature(reflect.TypeOf(dorm.Img{}))
 			for _, fld := range refl.NestedFields(*model) {
-				if refl.Signature(fld.Type) == imgStr {
+				if refl.Signature(fld.Type) == "*"+imgStr {
 					return true
 				}
 			}
@@ -124,21 +123,21 @@ func main() {
 	//fmt.Println(data)
 }
 
-// tableName gets the table name of the given model
-func tableName(model interface{}) string {
-	t := reflect.TypeOf(model)
-	v := reflect.ValueOf(model)
-	if t.Kind() == reflect.Ptr {
-		t = t.Elem()
-		v = v.Elem()
-	}
+// // Table get the table name of the given model
+// func Table(model interface{}) string {
+// 	t := reflect.TypeOf(model)
+// 	v := reflect.ValueOf(model)
+// 	if t.Kind() == reflect.Ptr {
+// 		t = t.Elem()
+// 		v = v.Elem()
+// 	}
 
-	if _, ok := t.MethodByName("TableName"); ok {
-		name := v.MethodByName("TableName").Call([]reflect.Value{})
-		return name[0].String()
-	}
-	return conv.CaseSnake(t.Name())
-}
+// 	if _, ok := t.MethodByName("TableName"); ok {
+// 		name := v.MethodByName("TableName").Call([]reflect.Value{})
+// 		return name[0].String()
+// 	}
+// 	return conv.CaseSnake(t.Name())
+// }
 
 type insertChecks interface {
 	BeforeInsert(a fuel.Aide) error
