@@ -256,7 +256,7 @@ func ({{.VarContr}} *{{.Model}}Service) ImageAppend({{.Key}} {{.KeyType}}, ad fu
 	}
 
 	// create new file record
-	file, err := NewFile(f, fh, "{{.Table}}", "images", dorm.WhoMap(ad.Request))
+	file, err := dorm.NewFile(f, fh, "{{.Table}}", "images", dorm.WhoMap(ad.Request))
 	if err != nil {
 		return nil, err
 	}
@@ -266,8 +266,8 @@ func ({{.VarContr}} *{{.Model}}Service) ImageAppend({{.Key}} {{.KeyType}}, ad fu
 		list := make(dorm.ImgList, 0)
 		{{.VarSing}}.Images = &list
 	}
-	*{{.VarSing}}.Images = append(*{{.VarSing}}.Images, dorm.Img{FileID: file.ID, Src: file.URL()})
-	err = dbo.Model({{.VarSing}}).Where("id=?", id).Update("images", {{.VarSing}}.Images).Error
+	*{{.VarSing}}.Images = append(*{{.VarSing}}.Images, dorm.Img{FileRef: file.UID, Src: file.URL()})
+	err = dbo.Model({{.VarSing}}).Where("{{.Key}}=?", {{.Key}}).Update("images", {{.VarSing}}.Images).Error
 	if err != nil {
 		return nil, err
 	}
@@ -296,7 +296,7 @@ func ({{.VarContr}} *{{.Model}}Service) ImageRemove({{.Key}} {{.KeyType}}, pos i
 	// remove that pos, and save
 	list := *{{.VarSing}}.Images
 	list = append(list[:pos], list[pos+1:]...)
-	err = dbo.Model({{.VarSing}}).Where("id=?", id).Update("images", &list).Error
+	err = dbo.Model({{.VarSing}}).Where("{{.Key}}=?", {{.Key}}).Update("images", &list).Error
 	if err != nil {
 		return nil, err
 	}
@@ -343,7 +343,7 @@ func ({{.VarContr}} *{{.Model}}Service) ImageMove({{.Key}} {{.KeyType}}, pos int
 		}
 	}
 
-	err = dbo.Model({{.VarSing}}).Where("id=?", id).Update("images", &newList).Error
+	err = dbo.Model({{.VarSing}}).Where("{{.Key}}=?", {{.Key}}).Update("images", &newList).Error
 	if err != nil {
 		return nil, err
 	}
@@ -375,7 +375,7 @@ func ({{.VarContr}} *{{.Model}}Service) ImageRemoveMany({{.Key}} {{.KeyType}}, s
     // removed from pos to dest pos, and save
     list := *{{.VarSing}}.Images
     list = append(list[:startPos], list[endPos+1:]...)
-    err = dbo.Model({{.VarSing}}).Where("id=?", id).Update("images", &list).Error
+    err = dbo.Model({{.VarSing}}).Where("{{.Key}}=?", {{.Key}}).Update("images", &list).Error
     if err != nil {
         return nil, err
     }
