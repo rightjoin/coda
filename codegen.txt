@@ -266,7 +266,14 @@ func ({{.VarContr}} *{{.Model}}Service) ImageAppend({{.Key}} {{.KeyType}}, ad fu
 		list := make(dorm.ImgList, 0)
 		{{.VarSing}}.Images = &list
 	}
-	*{{.VarSing}}.Images = append(*{{.VarSing}}.Images, dorm.Img{FileRef: file.UID, Src: file.URL()})
+
+	// ref should be UID or ID
+	var ref = file.UID
+	if dorm.ImgFileRef == "ID" {
+		ref = fmt.Sprintf("%d", file.ID)
+	}
+
+	*{{.VarSing}}.Images = append(*{{.VarSing}}.Images, dorm.Img{FileRef: ref, Src: file.URL()})
 	err = dbo.Model({{.VarSing}}).Where("{{.Key}}=?", {{.Key}}).Update("images", {{.VarSing}}.Images).Error
 	if err != nil {
 		return nil, err
