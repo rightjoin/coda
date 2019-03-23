@@ -79,9 +79,9 @@ func main() {
 		}(),
 
 		// Behaviors
-		"IsDyn":      refl.ComposedOf(model, dorm.DynamicField{}),
-		"IsSM":       refl.ComposedOf(model, dorm.Stateful{}),
-		"IsImgMulti": refl.ComposedOf(model, dorm.ImgMulti{}),
+		"IsDyn":        refl.ComposedOf(model, dorm.DynamicField{}),
+		"IsSM":         refl.ComposedOf(model, dorm.Stateful{}),
+		"IsImageFiles": refl.ComposedOf(model, dorm.ImageFiles{}),
 		"HasIns": func() bool {
 			var intf interface{} = *model
 			_, valid := (intf).(insertChecks)
@@ -97,10 +97,10 @@ func main() {
 			_, valid := (intf).(writeChecks)
 			return valid
 		}(),
-		"HasImg": func() bool {
-			imgStr := refl.Signature(reflect.TypeOf(dorm.Img{}))
+		"HasFile": func() bool {
+			fileStr := refl.Signature(reflect.TypeOf(dorm.File{}))
 			for _, fld := range refl.NestedFields(*model) {
-				if refl.Signature(fld.Type) == "*"+imgStr {
+				if refl.Signature(fld.Type) == "*"+fileStr {
 					return true
 				}
 			}

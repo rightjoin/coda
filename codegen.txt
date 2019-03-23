@@ -13,8 +13,8 @@ type {{.Model}}Service struct {
 	find    fuel.GET    `route:"find"`
 	query   fuel.POST   `route:"query"`
 
-	{{if .IsImgMulti}}
-	// Multi image APIs
+	{{if .IsImageFiles}}
+	// ImageFiles apis
 	imageGet        fuel.GET    `route:"{id:[0-9]+}/images"`
 	imageDefault    fuel.GET    `route:"{id:[0-9]+}/images/default"`
 	imageAppend     fuel.POST   `route:"{id:[0-9]+}/images"`
@@ -85,9 +85,9 @@ func ({{.VarContr}} *{{.Model}}Service) Insert(h fuel.Aide) (*{{.Model}}, error)
 	}
     {{end}}
     
-	{{if .HasImg}}
+	{{if .HasFile}}
 	// save any embedded file data to disk, and then update post vars
-	err = dorm.SaveAnyImg(h.Request, h.Post(), {{.VarSing}})
+	err = dorm.SaveAnyFile(h.Request, h.Post(), {{.VarSing}})
 	if err != nil {
 		return nil, err
 	}
@@ -141,9 +141,9 @@ func ({{.VarContr}} *{{.Model}}Service) Update({{.Key}} {{.KeyType}}, h fuel.Aid
     {{end}}
     
 
-	{{if .HasImg}}
+	{{if .HasFile}}
 	// save any embedded file data to disk, and then update post vars
-	err = dorm.SaveAnyImg(h.Request, h.Post(), {{.VarSing}})
+	err = dorm.SaveAnyFile(h.Request, h.Post(), {{.VarSing}})
 	if err != nil {
 		return nil, err
 	}
@@ -201,13 +201,13 @@ func ({{.VarContr}} *{{.Model}}Service) Query(ad fuel.Aide) ([]{{.Model}}, error
 
 
 
-{{if .IsImgMulti}}
+{{if .IsImageFiles}}
 //---------------------------------------
-// Multiple images: handling and saving
+// Multiple image files: handling and saving
 //---------------------------------------
 
 
-func ({{.VarContr}} *{{.Model}}Service) ImageGet({{.Key}} {{.KeyType}}) (*dorm.ImgList, error) {
+func ({{.VarContr}} *{{.Model}}Service) ImageGet({{.Key}} {{.KeyType}}) (*dorm.FileList, error) {
 	var {{.VarSing}} {{.Model}}
 	dbo := dorm.GetORM(true)
 	err := dbo.Where("{{.Key}}=?",{{.Key}}).First(&{{.VarSing}}).Error
@@ -217,14 +217,14 @@ func ({{.VarContr}} *{{.Model}}Service) ImageGet({{.Key}} {{.KeyType}}) (*dorm.I
 
 	// If nil then return empty
 	if {{.VarSing}}.Images == nil {
-		list := make(dorm.ImgList, 0)
+		list := make(dorm.FileList, 0)
 		return &list, nil
 	}
 
 	return {{.VarSing}}.Images, nil
 }
 
-func ({{.VarContr}} *{{.Model}}Service) ImageDefault({{.Key}} {{.KeyType}}) (*dorm.Img, error) {
+func ({{.VarContr}} *{{.Model}}Service) ImageDefault({{.Key}} {{.KeyType}}) (*dorm.File, error) {
 	var {{.VarSing}} {{.Model}}
 	dbo := dorm.GetORM(true)
 	err := dbo.Where("{{.Key}}=?",{{.Key}}).First(&{{.VarSing}}).Error
@@ -241,7 +241,7 @@ func ({{.VarContr}} *{{.Model}}Service) ImageDefault({{.Key}} {{.KeyType}}) (*do
 	return &dflt, nil
 }
 
-func ({{.VarContr}} *{{.Model}}Service) ImageAppend({{.Key}} {{.KeyType}}, ad fuel.Aide) (*dorm.ImgList, error) {
+func ({{.VarContr}} *{{.Model}}Service) ImageAppend({{.Key}} {{.KeyType}}, ad fuel.Aide) (*dorm.FileList, error) {
 	var {{.VarSing}} {{.Model}}
 	dbo := dorm.GetORM(true)
 	err := dbo.Where("{{.Key}}=?",{{.Key}}).First(&{{.VarSing}}).Error
@@ -256,24 +256,18 @@ func ({{.VarContr}} *{{.Model}}Service) ImageAppend({{.Key}} {{.KeyType}}, ad fu
 	}
 
 	// create new file record
-	file, err := dorm.NewFile(f, fh, "{{.Table}}", "images", dorm.WhoMap(ad.Request))
+	md, err := dorm.NewMedia(f, fh, "{{.Table}}", "images", dorm.WhoMap(ad.Request))
 	if err != nil {
 		return nil, err
 	}
 
 	// append to images collection
 	if {{.VarSing}}.Images == nil {
-		list := make(dorm.ImgList, 0)
+		list := make(dorm.FileList, 0)
 		{{.VarSing}}.Images = &list
 	}
 
-	// ref should be UID or ID
-	var ref = file.UID
-	if dorm.ImgFileRef == "ID" {
-		ref = fmt.Sprintf("%d", file.ID)
-	}
-
-	*{{.VarSing}}.Images = append(*{{.VarSing}}.Images, dorm.Img{FileRef: ref, Src: file.URL()})
+	*{{.VarSing}}.Images = append(*{{.VarSing}}.Images, md.File())
 	err = dbo.Model({{.VarSing}}).Where("{{.Key}}=?", {{.Key}}).Update("images", {{.VarSing}}.Images).Error
 	if err != nil {
 		return nil, err
@@ -282,7 +276,7 @@ func ({{.VarContr}} *{{.Model}}Service) ImageAppend({{.Key}} {{.KeyType}}, ad fu
 	return {{.VarSing}}.Images, nil
 }
 
-func ({{.VarContr}} *{{.Model}}Service) ImageRemove({{.Key}} {{.KeyType}}, pos int) (*dorm.ImgList, error) {
+func ({{.VarContr}} *{{.Model}}Service) ImageRemove({{.Key}} {{.KeyType}}, pos int) (*dorm.FileList, error) {
 	var {{.VarSing}} {{.Model}}
 	dbo := dorm.GetORM(true)
 	err := dbo.Where("{{.Key}}=?",{{.Key}}).First(&{{.VarSing}}).Error
@@ -311,7 +305,7 @@ func ({{.VarContr}} *{{.Model}}Service) ImageRemove({{.Key}} {{.KeyType}}, pos i
 	return &list, nil
 }
 
-func ({{.VarContr}} *{{.Model}}Service) ImageMove({{.Key}} {{.KeyType}}, pos int, posDest int) (*dorm.ImgList, error) {
+func ({{.VarContr}} *{{.Model}}Service) ImageMove({{.Key}} {{.KeyType}}, pos int, posDest int) (*dorm.FileList, error) {
 	var {{.VarSing}} {{.Model}}
 	dbo := dorm.GetORM(true)
 	err := dbo.Where("{{.Key}}=?",{{.Key}}).First(&{{.VarSing}}).Error
@@ -337,7 +331,7 @@ func ({{.VarContr}} *{{.Model}}Service) ImageMove({{.Key}} {{.KeyType}}, pos int
 	img := list[pos]
 	list = append(list[:pos], list[pos+1:]...) // list is shrunk by 1 item
 
-	newList := make(dorm.ImgList, 0)
+	newList := make(dorm.FileList, 0)
 	if posDest == len(list) { // send to the end
 		newList = append(list, img)
 	} else { // insert at specific position
@@ -358,7 +352,7 @@ func ({{.VarContr}} *{{.Model}}Service) ImageMove({{.Key}} {{.KeyType}}, pos int
 	return &newList, nil
 }
 
-func ({{.VarContr}} *{{.Model}}Service) ImageRemoveMany({{.Key}} {{.KeyType}}, startPos int, endPos int) (*dorm.ImgList, error) {
+func ({{.VarContr}} *{{.Model}}Service) ImageRemoveMany({{.Key}} {{.KeyType}}, startPos int, endPos int) (*dorm.FileList, error) {
 	var {{.VarSing}} {{.Model}}
 	dbo := dorm.GetORM(true)
 	err := dbo.Where("{{.Key}}=?",{{.Key}}).First(&{{.VarSing}}).Error
