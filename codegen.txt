@@ -1,6 +1,6 @@
 
 type {{.Model}}Service struct {
-	fuel.Service `prefix:"???" root:"{{.Table}}" version:"1"`
+	fuel.Service `prefix:"???" root:"{{.Root}}" version:"1"`
 
 	// Custom apis:
 

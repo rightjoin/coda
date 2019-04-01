@@ -61,6 +61,7 @@ func main() {
 		// Core Model & Table
 		"Model": name,
 		"Table": dorm.Table(model),
+		"Root":  strings.Replace(dorm.Table(model), "_", "-", -1),
 
 		// Unique ID or Primary Key related
 		"Key": pkey,
