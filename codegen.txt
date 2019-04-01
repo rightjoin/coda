@@ -61,21 +61,22 @@ func ({{.VarContr}} *{{.Model}}Service) Insert(h fuel.Aide) (*{{.Model}}, error)
 	var {{.VarSing}} {{.Model}}
 	var err error
 
-    {{if .HasInsUpd}}
-	// custom validations - write
-	err = {{.VarSing}}.BeforeInsertUpdate(h)
-	if err != nil {
-		return nil, err
+	// Custom validations
+	var ihook interface{} = {{.VarSing}}
+	hsave, save := ihook.(fuel.HookSave)
+	if save {
+		err = hsave.PreSave(h)
+		if err != nil {
+			return nil, err
+		}
 	}
-    {{end}}
-
-    {{if .HasIns}}
-	// custom validations - insert
-	err = {{.VarSing}}.BeforeInsert(h)
-	if err != nil {
-		return nil, err
+	hins, ins := ihook.(fuel.HookInsert)
+	if ins {
+		err = hins.PreInsert(h)
+		if err != nil {
+			return nil, err
+		}
 	}
-    {{end}}
 
     {{if .IsDyn}}
 	var ok bool
@@ -115,21 +116,22 @@ func ({{.VarContr}} *{{.Model}}Service) Update({{.Key}} {{.KeyType}}, h fuel.Aid
 
 	dbo := dorm.GetORM(true)
     
-    {{if .HasInsUpd}}
-	// custom validations - write
-	err = {{.VarSing}}.BeforeInsertUpdate(h)
-	if err != nil {
-		return nil, err
+	// Custom validations
+	var ihook interface{} = {{.VarSing}}
+	hsave, save := ihook.(fuel.HookSave)
+	if save {
+		err = hsave.PreSave(h)
+		if err != nil {
+			return nil, err
+		}
 	}
-    {{end}}
-
-    {{if .HasUpd}}
-	// custom validations - update
-	err = {{.VarSing}}.BeforeUpdate(h)
-	if err != nil {
-		return nil, err
+	hupd, upd := ihook.(fuel.HookUpdate)
+	if upd {
+		err = hupd.PreUpdate(h)
+		if err != nil {
+			return nil, err
+		}
 	}
-    {{end}}
 
 
     {{if .IsDyn}}

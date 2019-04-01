@@ -10,7 +10,6 @@ import (
 	"github.com/alecthomas/template"
 	"github.com/rightjoin/dorm"
 
-	"github.com/rightjoin/fuel"
 	"github.com/rightjoin/rutl/refl"
 	"gitlab.fg.net/tcommerce/backend/skeleton-svc/api"
 )
@@ -82,21 +81,6 @@ func main() {
 		"IsDyn":        refl.ComposedOf(model, dorm.DynamicField{}),
 		"IsSM":         refl.ComposedOf(model, dorm.Stateful{}),
 		"IsImageFiles": refl.ComposedOf(model, dorm.ImageFiles{}),
-		"HasIns": func() bool {
-			var intf interface{} = *model
-			_, valid := (intf).(insertChecks)
-			return valid
-		}(),
-		"HasUpd": func() bool {
-			var intf interface{} = *model
-			_, valid := (intf).(updateChecks)
-			return valid
-		}(),
-		"HasInsUpd": func() bool {
-			var intf interface{} = *model
-			_, valid := (intf).(writeChecks)
-			return valid
-		}(),
 		"HasFile": func() bool {
 			fileStr := refl.Signature(reflect.TypeOf(dorm.File{}))
 			for _, fld := range refl.NestedFields(*model) {
@@ -138,15 +122,3 @@ func main() {
 // 	}
 // 	return conv.CaseSnake(t.Name())
 // }
-
-type insertChecks interface {
-	BeforeInsert(a fuel.Aide) error
-}
-
-type updateChecks interface {
-	BeforeUpdate(a fuel.Aide) error
-}
-
-type writeChecks interface {
-	BeforeInsertUpdate(a fuel.Aide) error
-}
