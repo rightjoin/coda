@@ -10,6 +10,7 @@ import (
 	"github.com/alecthomas/template"
 	"github.com/rightjoin/dorm"
 
+	"github.com/rightjoin/rutl/conv"
 	"github.com/rightjoin/rutl/refl"
 	"gitlab.fg.net/tcommerce/backend/skeleton-svc/api"
 )
@@ -79,9 +80,8 @@ func main() {
 		}(),
 
 		// Behaviors
-		"IsDyn":        refl.ComposedOf(model, dorm.DynamicField{}),
-		"IsSM":         refl.ComposedOf(model, dorm.Stateful{}),
-		"IsImageFiles": refl.ComposedOf(model, dorm.ImageFiles{}),
+		"IsDyn": refl.ComposedOf(model, dorm.DynamicField{}),
+		"IsSM":  refl.ComposedOf(model, dorm.Stateful{}),
 		"HasFile": func() bool {
 			fileStr := refl.Signature(reflect.TypeOf(dorm.File{}))
 			for _, fld := range refl.NestedFields(*model) {
@@ -92,6 +92,23 @@ func main() {
 			return false
 		}(),
 		"HasWho": refl.ComposedOf(model, dorm.WhosThat{}),
+		"Files": func() map[string]map[string]string {
+			out := map[string]map[string]string{}
+			flds := refl.NestedFields(model)
+			for _, f := range flds {
+				if f.Type == reflect.TypeOf(&dorm.Files{}) {
+					// map[whats-this] : WhatsThis
+					meth := conv.CaseSentence(f.Name)
+					out[f.Name] = map[string]string{
+						"url":  conv.CaseURL(f.Name),
+						"meth": strings.ToLower(meth[0:1]) + meth[1:],
+						"db":   conv.CaseSnake(f.Name),
+					}
+					//out[conv.CaseSnake(f.Name)] = f.Name
+				}
+			}
+			return out
+		}(),
 	}
 
 	t, err := template.New("codegen.txt").ParseFiles("./codegen.txt")

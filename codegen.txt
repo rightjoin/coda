@@ -13,24 +13,25 @@ type {{.Model}}Service struct {
 	find    fuel.GET    `route:"find"`
 	query   fuel.POST   `route:"query"`
 
-	{{if .IsImageFiles}}
-	// ImageFiles apis
-	imageGet        fuel.GET    `route:"{id:[0-9]+}/images"`
-	imageDefault    fuel.GET    `route:"{id:[0-9]+}/images/default"`
-	imageAppend     fuel.POST   `route:"{id:[0-9]+}/images"`
-	imageMove       fuel.PUT    `route:"{id:[0-9]+}/images/{pos:[0-9]+}/move-to/{posDest:[0-9]+}"`
-	imageRemove     fuel.DELETE `route:"{id:[0-9]+}/images/{pos:[0-9]+}"`
-	imageRemoveMany fuel.DELETE `route:"{id:[0-9]+}/images/{startPos:[0-9]+}/to/{endPos:[0-9]+}"`
-	{{end}}
-
     {{if .IsDyn}}
-	// Attributes for DynamicField
+	// Attributes for DynamicField:
 	attribute       fuel.GET  `route:"/attribute/{id:[0-9]+}"`
 	attributeList   fuel.GET  `route:"/attribute/list"`
 	attributeCode   fuel.GET  `route:"/attribute/code/{code}"`
 	attributeInsert fuel.POST `route:"/attribute"`
 	attributeUpdate fuel.PUT  `route:"/attribute/{id:[0-9]+}"`
     {{end}}
+
+	{{if .Files}}// Files related apis: {{ range $fld, $map := .Files }} {{ $url := $map.url}} {{ $meth := $map.meth}} {{ $db := $map.db}}
+	{{$meth}}Get        fuel.GET    `route:"{id:[0-9]+}/{{$url}}"`
+	{{$meth}}Default    fuel.GET    `route:"{id:[0-9]+}/{{$url}}/default"`
+	{{$meth}}Append     fuel.POST   `route:"{id:[0-9]+}/{{$url}}"`
+	{{$meth}}Move       fuel.PUT    `route:"{id:[0-9]+}/{{$url}}/{pos:[0-9]+}/move-to/{posDest:[0-9]+}"`
+	{{$meth}}Remove     fuel.DELETE `route:"{id:[0-9]+}/{{$url}}/{pos:[0-9]+}"`
+	{{$meth}}RemoveMany fuel.DELETE `route:"{id:[0-9]+}/{{$url}}/{startPos:[0-9]+}/to/{endPos:[0-9]+}"`
+	{{ end }}
+	{{ end }}
+
 }
 
 //---------------------------------------
@@ -203,192 +204,6 @@ func ({{.VarContr}} *{{.Model}}Service) Query(ad fuel.Aide) ([]{{.Model}}, error
 
 
 
-{{if .IsImageFiles}}
-//---------------------------------------
-// Multiple image files: handling and saving
-//---------------------------------------
-
-
-func ({{.VarContr}} *{{.Model}}Service) ImageGet({{.Key}} {{.KeyType}}) (*dorm.FileList, error) {
-	var {{.VarSing}} {{.Model}}
-	dbo := dorm.GetORM(true)
-	err := dbo.Where("{{.Key}}=?",{{.Key}}).First(&{{.VarSing}}).Error
-	if err != nil {
-		return nil, err
-	}
-
-	// If nil then return empty
-	if {{.VarSing}}.Images == nil {
-		list := make(dorm.FileList, 0)
-		return &list, nil
-	}
-
-	return {{.VarSing}}.Images, nil
-}
-
-func ({{.VarContr}} *{{.Model}}Service) ImageDefault({{.Key}} {{.KeyType}}) (*dorm.File, error) {
-	var {{.VarSing}} {{.Model}}
-	dbo := dorm.GetORM(true)
-	err := dbo.Where("{{.Key}}=?",{{.Key}}).First(&{{.VarSing}}).Error
-	if err != nil {
-		return nil, err
-	}
-
-	// If nil then error
-	if {{.VarSing}}.Images == nil || len(*{{.VarSing}}.Images) == 0 {
-		return nil, errors.New("no image found")
-	}
-
-	dflt := (*{{.VarSing}}.Images)[0]
-	return &dflt, nil
-}
-
-func ({{.VarContr}} *{{.Model}}Service) ImageAppend({{.Key}} {{.KeyType}}, ad fuel.Aide) (*dorm.FileList, error) {
-	var {{.VarSing}} {{.Model}}
-	dbo := dorm.GetORM(true)
-	err := dbo.Where("{{.Key}}=?",{{.Key}}).First(&{{.VarSing}}).Error
-	if err != nil {
-		return nil, err
-	}
-
-	// validate postback contains data
-	f, fh, err := ad.Request.FormFile("image")
-	if err != nil {
-		return nil, err
-	}
-
-	// create new file record
-	md, err := dorm.NewMedia(f, fh, "{{.Table}}", "images", dorm.WhoMap(ad.Request))
-	if err != nil {
-		return nil, err
-	}
-
-	// append to images collection
-	if {{.VarSing}}.Images == nil {
-		list := make(dorm.FileList, 0)
-		{{.VarSing}}.Images = &list
-	}
-
-	*{{.VarSing}}.Images = append(*{{.VarSing}}.Images, md.File())
-	err = dbo.Model({{.VarSing}}).Where("{{.Key}}=?", {{.Key}}).Update("images", {{.VarSing}}.Images).Error
-	if err != nil {
-		return nil, err
-	}
-
-	return {{.VarSing}}.Images, nil
-}
-
-func ({{.VarContr}} *{{.Model}}Service) ImageRemove({{.Key}} {{.KeyType}}, pos int) (*dorm.FileList, error) {
-	var {{.VarSing}} {{.Model}}
-	dbo := dorm.GetORM(true)
-	err := dbo.Where("{{.Key}}=?",{{.Key}}).First(&{{.VarSing}}).Error
-	if err != nil {
-		return nil, err
-	}
-
-	// are there any images at all?
-	if {{.VarSing}}.Images == nil {
-		return nil, errors.New("no images found")
-	}
-
-	// does the given position exist?
-	if pos >= len(*{{.VarSing}}.Images) {
-		return nil, errors.New("no image found at the given position")
-	}
-
-	// remove that pos, and save
-	list := *{{.VarSing}}.Images
-	list = append(list[:pos], list[pos+1:]...)
-	err = dbo.Model({{.VarSing}}).Where("{{.Key}}=?", {{.Key}}).Update("images", &list).Error
-	if err != nil {
-		return nil, err
-	}
-
-	return &list, nil
-}
-
-func ({{.VarContr}} *{{.Model}}Service) ImageMove({{.Key}} {{.KeyType}}, pos int, posDest int) (*dorm.FileList, error) {
-	var {{.VarSing}} {{.Model}}
-	dbo := dorm.GetORM(true)
-	err := dbo.Where("{{.Key}}=?",{{.Key}}).First(&{{.VarSing}}).Error
-	if err != nil {
-		return nil, err
-	}
-
-	// are there any images at all?
-	if {{.VarSing}}.Images == nil {
-		return nil, errors.New("no images found")
-	}
-
-	// does the given position exist?
-	if pos >= len(*{{.VarSing}}.Images) {
-		return nil, errors.New("no image found at src position")
-	}
-	if posDest >= len(*{{.VarSing}}.Images) {
-		return nil, errors.New("no image found at dest position")
-	}
-
-	// remove that pos, and save
-	list := *{{.VarSing}}.Images
-	img := list[pos]
-	list = append(list[:pos], list[pos+1:]...) // list is shrunk by 1 item
-
-	newList := make(dorm.FileList, 0)
-	if posDest == len(list) { // send to the end
-		newList = append(list, img)
-	} else { // insert at specific position
-		for i := range list {
-			if i == posDest {
-				newList = append(newList, img, list[i])
-			} else {
-				newList = append(newList, list[i])
-			}
-		}
-	}
-
-	err = dbo.Model({{.VarSing}}).Where("{{.Key}}=?", {{.Key}}).Update("images", &newList).Error
-	if err != nil {
-		return nil, err
-	}
-
-	return &newList, nil
-}
-
-func ({{.VarContr}} *{{.Model}}Service) ImageRemoveMany({{.Key}} {{.KeyType}}, startPos int, endPos int) (*dorm.FileList, error) {
-	var {{.VarSing}} {{.Model}}
-	dbo := dorm.GetORM(true)
-	err := dbo.Where("{{.Key}}=?",{{.Key}}).First(&{{.VarSing}}).Error
-	if err != nil {
-		return nil, err
-	}
-
-    // are there any images at all?
-    if {{.VarSing}}.Images == nil {
-        return nil, errors.New("no images found")
-    }
-
-    // does the given position exist?
-    if startPos >= len(*{{.VarSing}}.Images) {
-        return nil, errors.New("no image found at the starting position")
-    }
-    if endPos >= len(*{{.VarSing}}.Images) {
-        return nil, errors.New("no image found at ending position")
-    }
-
-    // removed from pos to dest pos, and save
-    list := *{{.VarSing}}.Images
-    list = append(list[:startPos], list[endPos+1:]...)
-    err = dbo.Model({{.VarSing}}).Where("{{.Key}}=?", {{.Key}}).Update("images", &list).Error
-    if err != nil {
-        return nil, err
-    }
-
-    return &list, nil
-}
-{{end}}
-
-
-
 {{if .IsDyn}}
 //---------------------------------------
 // Attributes for Dynamic Field
@@ -423,3 +238,196 @@ func ({{.VarContr}} *{{.Model}}Service) AttributeUpdate(id string, h fuel.Aide) 
 	return attr.UpdateViaEntity(h, id)
 }
 {{end}}
+
+
+
+
+{{if .Files}}
+//---------------------------------------
+// Files: handling and saving
+//---------------------------------------
+
+{{ range $fld, $map := .Files }}
+{{ $url := $map.url}}
+{{ $meth := $map.meth}}
+{{ $db := $map.db}}
+
+func ({{$.VarContr}} *{{$.Model}}Service) {{$fld}}Get({{$.Key}} {{$.KeyType}}) (*dorm.Files, error) {
+	var {{$.VarSing}} {{$.Model}}
+	dbo := dorm.GetORM(true)
+	err := dbo.Where("{{$.Key}}=?",{{$.Key}}).First(&{{$.VarSing}}).Error
+	if err != nil {
+		return nil, err
+	}
+
+	// If nil then return empty
+	if {{$.VarSing}}.{{$fld}} == nil {
+		list := make(dorm.Files, 0)
+		return &list, nil
+	}
+
+	return {{$.VarSing}}.{{$fld}}, nil
+}
+
+func ({{$.VarContr}} *{{$.Model}}Service) {{$fld}}Default({{$.Key}} {{$.KeyType}}) (*dorm.File, error) {
+	var {{$.VarSing}} {{$.Model}}
+	dbo := dorm.GetORM(true)
+	err := dbo.Where("{{$.Key}}=?",{{$.Key}}).First(&{{$.VarSing}}).Error
+	if err != nil {
+		return nil, err
+	}
+
+	// If nil then error
+	if {{$.VarSing}}.{{$fld}} == nil || len(*{{$.VarSing}}.{{$fld}}) == 0 {
+		return nil, errors.New("no file found")
+	}
+
+	dflt := (*{{$.VarSing}}.{{$fld}})[0]
+	return &dflt, nil
+}
+
+func ({{$.VarContr}} *{{$.Model}}Service) {{$fld}}Append({{$.Key}} {{$.KeyType}}, ad fuel.Aide) (*dorm.Files, error) {
+	var {{$.VarSing}} {{$.Model}}
+	dbo := dorm.GetORM(true)
+	err := dbo.Where("{{$.Key}}=?",{{$.Key}}).First(&{{$.VarSing}}).Error
+	if err != nil {
+		return nil, err
+	}
+
+	// validate postback contains data
+	f, fh, err := ad.Request.FormFile("file")
+	if err != nil {
+		return nil, err
+	}
+
+	// create new file record
+	md, err := dorm.NewMedia(f, fh, "{{$.Table}}", "{{$db}}", dorm.WhoMap(ad.Request))
+	if err != nil {
+		return nil, err
+	}
+
+	// append to collection
+	if {{$.VarSing}}.{{$fld}} == nil {
+		list := make(dorm.Files, 0)
+		{{$.VarSing}}.{{$fld}} = &list
+	}
+
+	*{{$.VarSing}}.{{$fld}} = append(*{{$.VarSing}}.{{$fld}}, md.File())
+	err = dbo.Model({{$.VarSing}}).Where("{{$.Key}}=?", {{$.Key}}).Update("{{$db}}", {{$.VarSing}}.{{$fld}}).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return {{$.VarSing}}.{{$fld}}, nil
+}
+
+func ({{$.VarContr}} *{{$.Model}}Service) {{$fld}}Remove({{$.Key}} {{$.KeyType}}, pos int) (*dorm.Files, error) {
+	var {{$.VarSing}} {{$.Model}}
+	dbo := dorm.GetORM(true)
+	err := dbo.Where("{{$.Key}}=?",{{$.Key}}).First(&{{$.VarSing}}).Error
+	if err != nil {
+		return nil, err
+	}
+
+	// are there any files at all?
+	if {{$.VarSing}}.{{$fld}} == nil {
+		return nil, errors.New("no files found")
+	}
+
+	// does the given position exist?
+	if pos >= len(*{{$.VarSing}}.{{$fld}}) {
+		return nil, errors.New("no file found at the given position")
+	}
+
+	// remove that pos, and save
+	list := *{{$.VarSing}}.{{$fld}}
+	list = append(list[:pos], list[pos+1:]...)
+	err = dbo.Model({{$.VarSing}}).Where("{{$.Key}}=?", {{$.Key}}).Update("{{$db}}", &list).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return &list, nil
+}
+
+func ({{$.VarContr}} *{{$.Model}}Service) {{$fld}}Move({{$.Key}} {{$.KeyType}}, pos int, posDest int) (*dorm.Files, error) {
+	var {{$.VarSing}} {{$.Model}}
+	dbo := dorm.GetORM(true)
+	err := dbo.Where("{{$.Key}}=?",{{$.Key}}).First(&{{$.VarSing}}).Error
+	if err != nil {
+		return nil, err
+	}
+
+	// are there any files at all?
+	if {{$.VarSing}}.{{$fld}} == nil {
+		return nil, errors.New("no files found")
+	}
+
+	// does the given position exist?
+	if pos >= len(*{{$.VarSing}}.{{$fld}}) {
+		return nil, errors.New("no file found at src position")
+	}
+	if posDest >= len(*{{$.VarSing}}.{{$fld}}) {
+		return nil, errors.New("no file found at dest position")
+	}
+
+	// remove that pos, and save
+	list := *{{$.VarSing}}.{{$fld}}
+	img := list[pos]
+	list = append(list[:pos], list[pos+1:]...) // list is shrunk by 1 item
+
+	newList := make(dorm.Files, 0)
+	if posDest == len(list) { // send to the end
+		newList = append(list, img)
+	} else { // insert at specific position
+		for i := range list {
+			if i == posDest {
+				newList = append(newList, img, list[i])
+			} else {
+				newList = append(newList, list[i])
+			}
+		}
+	}
+
+	err = dbo.Model({{$.VarSing}}).Where("{{$.Key}}=?", {{$.Key}}).Update("{{$db}}", &newList).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return &newList, nil
+}
+
+func ({{$.VarContr}} *{{$.Model}}Service) {{$fld}}RemoveMany({{$.Key}} {{$.KeyType}}, startPos int, endPos int) (*dorm.Files, error) {
+	var {{$.VarSing}} {{$.Model}}
+	dbo := dorm.GetORM(true)
+	err := dbo.Where("{{$.Key}}=?",{{$.Key}}).First(&{{$.VarSing}}).Error
+	if err != nil {
+		return nil, err
+	}
+
+    // are there any files at all?
+    if {{$.VarSing}}.{{$fld}} == nil {
+        return nil, errors.New("no files found")
+    }
+
+    // does the given position exist?
+    if startPos >= len(*{{$.VarSing}}.{{$fld}}) {
+        return nil, errors.New("no file found at the starting position")
+    }
+    if endPos >= len(*{{$.VarSing}}.{{$fld}}) {
+        return nil, errors.New("no file found at ending position")
+    }
+
+    // removed from pos to dest pos, and save
+    list := *{{$.VarSing}}.{{$fld}}
+    list = append(list[:startPos], list[endPos+1:]...)
+    err = dbo.Model({{$.VarSing}}).Where("{{$.Key}}=?", {{$.Key}}).Update("{{$db}}", &list).Error
+    if err != nil {
+        return nil, err
+    }
+
+    return &list, nil
+}
+
+{{ end }}
+{{ end }}
