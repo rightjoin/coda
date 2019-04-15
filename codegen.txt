@@ -1,6 +1,6 @@
 
 type {{.Model}}Service struct {
-	fuel.Service `prefix:"???" root:"{{.Root}}" version:"1"`
+	fuel.Service `prefix:"api" root:"{{.Root}}" version:"1"`
 
 	// Custom apis:
 
@@ -15,11 +15,11 @@ type {{.Model}}Service struct {
 
     {{if .IsDyn}}
 	// Attributes for DynamicField:
-	attribute       fuel.GET  `route:"/attribute/{id:[0-9]+}"`
-	attributeList   fuel.GET  `route:"/attribute/list"`
-	attributeCode   fuel.GET  `route:"/attribute/code/{code}"`
-	attributeInsert fuel.POST `route:"/attribute"`
-	attributeUpdate fuel.PUT  `route:"/attribute/{id:[0-9]+}"`
+	attribute       fuel.GET  `route:"/attr/{id:[0-9]+}"`
+	attributeList   fuel.GET  `route:"/attr/list"`
+	attributeCode   fuel.GET  `route:"/attr/code/{code}"`
+	attributeInsert fuel.POST `route:"/attr"`
+	attributeUpdate fuel.PUT  `route:"/attr/{id:[0-9]+}"`
     {{end}}
 
 	{{if .Files}}// Files related apis: {{ range $fld, $map := .Files }} {{ $url := $map.url}} {{ $meth := $map.meth}} {{ $db := $map.db}}
@@ -80,9 +80,9 @@ func ({{.VarContr}} *{{.Model}}Service) Insert(h fuel.Aide) (*{{.Model}}, error)
 	}
 
     {{if .IsDyn}}
+	// Validation of Dynamic Fields
 	var ok bool
-	// validate dynamic fields
-	if ok, err = attr.ValidateInputs({{.VarSing}}, h.Post()); !ok {
+	if ok, err = dorm.AttributeValidate({{.VarSing}}, h.Post()); !ok {
 		return nil, err
 	}
     {{end}}
@@ -134,11 +134,10 @@ func ({{.VarContr}} *{{.Model}}Service) Update({{.Key}} {{.KeyType}}, h fuel.Aid
 		}
 	}
 
-
     {{if .IsDyn}}
+	// Validation of Dynamic Fields
 	var ok bool
-	// validate dynamic fields
-	if ok, err = attr.ValidateInputs({{.VarSing}}, h.Post()); !ok {
+	if ok, err = dorm.AttributeValidate({{.VarSing}}, h.Post()); !ok {
 		return nil, err
 	}
     {{end}}
@@ -209,33 +208,43 @@ func ({{.VarContr}} *{{.Model}}Service) Query(ad fuel.Aide) ([]{{.Model}}, error
 // Attributes for Dynamic Field
 //---------------------------------------
 
-func ({{.VarContr}} *{{.Model}}Service) Attribute(id uint) (attr.AttributeField, error) {
-	var att attr.AttributeField
+func ({{.VarContr}} *{{.Model}}Service) Attribute(id uint) (dorm.AttributeEntity, error) {
+	var att dorm.AttributeEntity
 	dbo := dorm.GetORM(true)
 	err := dbo.Where("entity=? and id=?", "{{.Table}}", id).Find(&att).Error
 	return att, err
 }
 
-func ({{.VarContr}} *{{.Model}}Service) AttributeCode(code string) (attr.AttributeField, error) {
-	var att attr.AttributeField
+func ({{.VarContr}} *{{.Model}}Service) AttributeCode(code string) (dorm.AttributeEntity, error) {
+	var att dorm.AttributeEntity
 	dbo := dorm.GetORM(true)
 	err := dbo.Where("entity=? and field='info' and code=?", "{{.Table}}", code).Find(&att).Error
 	return att, err
 }
 
-func ({{.VarContr}} *{{.Model}}Service) AttributeList() ([]attr.AttributeField, error) {
-	var atts []attr.AttributeField
+func ({{.VarContr}} *{{.Model}}Service) AttributeList() ([]dorm.AttributeEntity, error) {
+	var atts []dorm.AttributeEntity
 	dbo := dorm.GetORM(true)
 	err := dbo.Where("entity=?", "{{.Table}}").Order("entity, field, code").Find(&atts).Error
 	return atts, err
 }
 
-func ({{.VarContr}} *{{.Model}}Service) AttributeInsert(h fuel.Aide) (*attr.AttributeField, error) {
-	return attr.InsertViaEntity(h, "{{.Table}}", "info")
+func ({{.VarContr}} *{{.Model}}Service) AttributeInsert(h fuel.Aide) (*dorm.AttributeEntity, error) {
+	var post = h.Post()
+	var {{.VarSing}} {{.Model}}
+	if refl.ComposedOf({{.VarSing}}, dorm.WhosThat{}) {
+		post["who"] = dorm.WhoStr(h.Request)
+	}
+	return dorm.AttributeInsertViaEntity(post, "{{.Table}}", "info")
 }
 
-func ({{.VarContr}} *{{.Model}}Service) AttributeUpdate(id string, h fuel.Aide) (*attr.AttributeField, error) {
-	return attr.UpdateViaEntity(h, id)
+func ({{.VarContr}} *{{.Model}}Service) AttributeUpdate(id string, h fuel.Aide) (*dorm.AttributeEntity, error) {
+	var post = h.Post()
+	var {{.VarSing}} {{.Model}}
+	if refl.ComposedOf({{.VarSing}}, dorm.WhosThat{}) {
+		post["who"] = dorm.WhoStr(h.Request)
+	}
+	return dorm.AttributeUpdateViaEntity(post, id)
 }
 {{end}}
 
