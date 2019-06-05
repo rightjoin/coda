@@ -6,7 +6,6 @@ type {{.Model}}Service struct {
 
 	// Automatic apis:
 	get     fuel.GET    `route:"{{.KeyRoute}}"`
-	getAlt  fuel.GET    `route:"alt/{{.KeyRoute}}"`
 	insert  fuel.POST   `route:"-"`
 	update  fuel.PUT    `route:"{{.KeyRoute}}"`
 	delete  fuel.DELETE `route:"{{.KeyRoute}}"`
