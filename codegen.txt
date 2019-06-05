@@ -44,16 +44,9 @@ type {{.Model}}Service struct {
 //---------------------------------------
 
 
-func ({{.VarContr}} *{{.Model}}Service) Get({{.Key}} {{.KeyType}}) (*{{.Model}}, error) {
+func ({{.VarContr}} *{{.Model}}Service) Get({{.Key}} {{.KeyType}}, ad fuel.Aide) (*{{.Model}}, error) {
 	var {{.VarSing}} {{.Model}}
-	dbo := dorm.GetORM(true)
-	err := dbo.Where("{{.Key}}=?",{{.Key}}).First(&{{.VarSing}}).Error
-	return &{{.VarSing}}, err
-}
-
-func ({{.VarContr}} *{{.Model}}Service) GetAlt({{.Key}} {{.KeyType}}) (*{{.Model}}, error) {
-	var {{.VarSing}} {{.Model}}
-	dbo := dorm.GetORM(false)
+	dbo := fuel.QueryDB(ad)
 	err := dbo.Where("{{.Key}}=?",{{.Key}}).First(&{{.VarSing}}).Error
 	return &{{.VarSing}}, err
 }
@@ -188,19 +181,17 @@ func ({{.VarContr}} *{{.Model}}Service) Delete({{.Key}} {{.KeyType}}, h fuel.Aid
 
 func ({{.VarContr}} *{{.Model}}Service) Find(ad fuel.Aide) ([]{{.Model}}, error) {
 	var {{.VarSing}}  {{.Model}}
-    var {{.VarPlur}}  []{{.Model}}
-	err := fuel.FindHelper({{.VarSing}}, &{{.VarPlur}}, ad, nil)
-	return {{.VarPlur}}, err
+    var list []{{.Model}}
+	err := fuel.FindHelper({{.VarSing}}, &list, ad, nil)
+	return list, err
 }
 
 func ({{.VarContr}} *{{.Model}}Service) Query(ad fuel.Aide) ([]{{.Model}}, error) {
 	var {{.VarSing}}  {{.Model}}
-    var {{.VarPlur}}  []{{.Model}}
-	err := fuel.QueryHelper({{.VarSing}}, &{{.VarPlur}}, ad, nil)
-	return {{.VarPlur}}, err
+    var list []{{.Model}}
+	err := fuel.QueryHelper({{.VarSing}}, &list, ad, nil)
+	return list, err
 }
-
-
 
 
 {{if .IsDyn}}
