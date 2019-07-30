@@ -28,6 +28,7 @@ type {{.Model}}Service struct {
 	{{$meth}}Move       fuel.PUT    `route:"{id:[0-9]+}/{{$url}}/{pos:[0-9]+}/move-to/{posDest:[0-9]+}"`
 	{{$meth}}Remove     fuel.DELETE `route:"{id:[0-9]+}/{{$url}}/{pos:[0-9]+}"`
 	{{$meth}}RemoveMany fuel.DELETE `route:"{id:[0-9]+}/{{$url}}/{startPos:[0-9]+}/to/{endPos:[0-9]+}"`
+	{{$meth}}MoveMany   fuel.PUT    `route:"{id:[0-9]+}/{{$url}}/move-many"`
 	{{ end }}
 	{{ end }}
 
@@ -394,6 +395,55 @@ func ({{$.VarContr}} *{{$.Model}}Service) {{$fld}}Move({{$.Key}} {{$.KeyType}}, 
 	}
 
 	return &newList, nil
+}
+
+func ({{$.VarContr}} *{{$.Model}}Service) {{$fld}}MoveMany({{$.Key}} {{$.KeyType}}, ad fuel.Aide) (*dorm.Files, error) {
+	var {{$.VarSing}} {{$.Model}}
+	dbo := dorm.GetORM(true)
+	err := dbo.Where("{{$.Key}}=?",{{$.Key}}).First(&{{$.VarSing}}).Error
+	if err != nil {
+		return nil, err
+	}
+
+	// are there any files at all?
+	if {{$.VarSing}}.{{$fld}} == nil {
+		return nil, errors.New("no files found")
+	}
+	
+	// Validate input
+	body := ad.Post()
+	rList, ok := body["ref_list"]
+	if !ok {
+		return nil, errors.New("ref_list must be present")
+	}
+
+	refArr := []string{}
+	if err = json.Unmarshal([]byte(rList), &refArr); err != nil {
+		return nil, err
+	}
+
+	if len(refArr) != len(*{{$.VarSing}}.{{$fld}}) {
+		return nil, fmt.Errorf("ref_list length mismatch found %d, expected: %d", len(refArr), len(*{{$.VarSing}}.{{$fld}}))
+	}
+
+	// create a dictionary with ref as key and all the other relevant fields as value
+	dict := make(map[string]dorm.File, len(*{{$.VarSing}}.{{$fld}}))
+	for _, val := range *{{$.VarSing}}.{{$fld}} {
+		dict[val.Ref] = val
+	}
+
+	// fetch other relevant fields across the newly swapped ref-list
+	newArr := make(dorm.Files, len(refArr))
+	for ind, ref := range refArr {
+		newArr[ind] = dict[ref]
+	}
+
+	err = dbo.Model({{$.VarSing}}).Where("{{$.Key}}=?", {{$.Key}}).Update("{{$db}}", &newArr).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return &newArr, nil
 }
 
 func ({{$.VarContr}} *{{$.Model}}Service) {{$fld}}RemoveMany({{$.Key}} {{$.KeyType}}, startPos int, endPos int) (*dorm.Files, error) {
