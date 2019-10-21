@@ -74,7 +74,7 @@ func ({{.VarContr}} *{{.Model}}Service) Insert(h fuel.Aide) (*{{.Model}}, error)
     {{if .IsDyn}}
 	// Validation of Dynamic Fields
 	var ok bool
-	if ok, err = dorm.AttributeValidate({{.VarSing}}, h.Post()); !ok {
+	if ok, err = dorm.AttributeValidate({{.VarSing}}, h.Post(), "insert"); !ok {
 		return nil, err
 	}
     {{end}}
@@ -129,7 +129,7 @@ func ({{.VarContr}} *{{.Model}}Service) Update({{.Key}} {{.KeyType}}, h fuel.Aid
     {{if .IsDyn}}
 	// Validation of Dynamic Fields
 	var ok bool
-	if ok, err = dorm.AttributeValidate({{.VarSing}}, h.Post()); !ok {
+	if ok, err = dorm.AttributeValidate({{.VarSing}}, h.Post(),"update"); !ok {
 		return nil, err
 	}
     {{end}}
