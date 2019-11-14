@@ -12,7 +12,7 @@ import (
 
 	"github.com/rightjoin/rutl/conv"
 	"github.com/rightjoin/rutl/refl"
-	"gitlab.fg.net/tcommerce/backend/skeleton-svc/api"
+	"gitlabtc.futuregroup.in/tcommerce/backend/skeleton-svc/api"
 )
 
 var model = &api.Model{}
